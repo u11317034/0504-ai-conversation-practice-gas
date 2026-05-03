@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; height: 100vh; box-sizing: border-box; }
+    .chat-container { width: 100%; max-width: 450px; background: white; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+    .header { background: #1a73e8; color: white; padding: 20px; text-align: center; }
+    h3 { margin: 0; font-size: 1.2em; }
+    select { width: 100%; padding: 12px; border-radius: 10px; border: none; outline: none; margin-top: 15px; font-size: 14px; background: #f8f9fa; cursor: pointer; }
+    .chat-box { flex: 1; padding: 20px; overflow-y: auto; background: #fdfdfd; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 80%; padding: 12px 16px; border-radius: 18px; font-size: 15px; line-height: 1.5; word-wrap: break-word; position: relative; }
+    .msg.user { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 2px; color: #333; }
+    .msg.ai { background: #f1f3f4; align-self: flex-start; border-bottom-left-radius: 2px; color: #202124; }
+    .input-area { display: flex; padding: 15px; background: white; border-top: 1px solid #eee; }
+    input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #e0e0e0; border-radius: 25px; outline: none; font-size: 15px; transition: 0.2s; }
+    input[type="text"]:focus { border-color: #1a73e8; }
+    button { background: #1a73e8; color: white; border: none; padding: 0 22px; margin-left: 10px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    button:hover { background: #1557b0; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="header">
+      <h3>🎭 情境對話模擬器</h3>
+      <select id="scenarioSelect" onchange="resetChat()">
+        <option value="你是速食店店員，負責幫客人點餐">🍔 速食店點餐</option>
+        <option value="你是電影院售票員，協助客人劃位與購票">🎬 電影院購票</option>
+        <option value="你是飯店櫃檯人員，協助客人辦理入住手續">🏨 飯店 Check-in</option>
+        <option value="你是海關人員，正在詢問旅客入境目的">🛂 海關入境審查</option>
+      </select>
+    </div>
+
+    <div id="chatBox" class="chat-box">
+      <div class="msg ai">你好！請選擇一個情境，然後跟我開始對話。</div>
+    </div>
+
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="請輸入訊息..." onkeypress="if(event.key === 'Enter') sendMsg()">
+      <button id="sendBtn" onclick="sendMsg()">傳送</button>
+    </div>
+  </div>
+
+  <script>
+    let chatHistory = [];
+
+    function appendMessage(sender, text) {
+      const box = document.getElementById('chatBox');
+      const div = document.createElement('div');
+      div.className = `msg ${sender}`;
+      div.innerText = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function resetChat() {
+      chatHistory = [];
+      document.getElementById('chatBox').innerHTML = '<div class="msg ai">情境已重設，請開始新的對話！</div>';
+    }
+
+    function sendMsg() {
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const scenario = document.getElementById('scenarioSelect').value;
+      const btn = document.getElementById('sendBtn');
+
+      appendMessage('user', text);
+      input.value = '';
+      input.disabled = true;
+      btn.disabled = true;
+      btn.innerText = '...';
+
+      google.script.run
+        .withSuccessHandler(response => {
+          appendMessage('ai', response);
+          // 更新歷史紀錄以維持 AI 記憶
+          chatHistory.push({ role: 'user', text: text });
+          chatHistory.push({ role: 'model', text: response });
+          
+          input.disabled = false;
+          btn.disabled = false;
+          btn.innerText = '傳送';
+          input.focus();
+        })
+        .withFailureHandler(err => {
+          appendMessage('ai', '⚠️ 錯誤：' + err.message);
+          input.disabled = false;
+          btn.disabled = false;
+          btn.innerText = '傳送';
+        })
+        .sendChatMessage(scenario, text, chatHistory);
+    }
+  </script>
+</body>
+</html>
